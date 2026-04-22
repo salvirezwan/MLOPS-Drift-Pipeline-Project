@@ -1,0 +1,45 @@
+name: adult_income_mlops
+
+conda_env: null
+
+entry_points:
+  ingest:
+    command: "python pipelines/ingest.py"
+
+  validate:
+    command: "python pipelines/validate.py"
+
+  featurize:
+    parameters:
+      test_size: {type: float, default: 0.2}
+      random_state: {type: int, default: 42}
+    command: "python pipelines/featurize.py"
+
+  train:
+    parameters:
+      n_estimators: {type: int, default: 200}
+      max_depth: {type: int, default: 6}
+      learning_rate: {type: float, default: 0.1}
+      subsample: {type: float, default: 0.8}
+      colsample_bytree: {type: float, default: 0.8}
+      eval_metric: {type: str, default: "logloss"}
+    command: "python pipelines/train.py"
+
+  evaluate:
+    command: "python pipelines/evaluate.py"
+
+  promote:
+    command: "python pipelines/promote.py"
+
+  pipeline:
+    command: "dvc repro"
+
+  drift_check:
+    command: "python monitoring/drift_detector.py"
+
+  simulate_drift:
+    parameters:
+      noise_factor: {type: float, default: 0.3}
+      n_records: {type: int, default: 500}
+      seed: {type: int, default: 42}
+    command: "python scripts/simulate_drift.py --noise-factor {noise_factor} --n-records {n_records} --seed {seed}"

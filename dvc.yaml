@@ -1,0 +1,62 @@
+stages:
+  ingest:
+    cmd: python pipelines/ingest.py
+    deps:
+      - pipelines/ingest.py
+    outs:
+      - data/raw/adult.parquet
+    params:
+      - params.yaml:
+          - data.random_state
+
+  validate:
+    cmd: python pipelines/validate.py
+    deps:
+      - pipelines/validate.py
+      - data/raw/adult.parquet
+    outs:
+      - great_expectations/uncommitted/data_docs/validation_report.html:
+          cache: false
+
+  featurize:
+    cmd: python pipelines/featurize.py
+    deps:
+      - pipelines/featurize.py
+      - feature_store/feature_store.py
+      - feature_store/schema.sql
+      - data/raw/adult.parquet
+    outs:
+      - data/processed/train.parquet
+      - data/processed/test.parquet
+      - feature_store/store.db
+    params:
+      - params.yaml:
+          - data.test_size
+          - data.random_state
+
+  train:
+    cmd: python pipelines/train.py
+    deps:
+      - pipelines/train.py
+      - data/processed/train.parquet
+    params:
+      - params.yaml:
+          - model
+          - data.random_state
+
+  evaluate:
+    cmd: python pipelines/evaluate.py
+    deps:
+      - pipelines/evaluate.py
+      - data/processed/test.parquet
+    params:
+      - params.yaml:
+          - promotion.min_auc_improvement
+
+  promote:
+    cmd: python pipelines/promote.py
+    deps:
+      - pipelines/promote.py
+    params:
+      - params.yaml:
+          - promotion.min_auc_improvement

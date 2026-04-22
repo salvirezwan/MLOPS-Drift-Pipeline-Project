@@ -1,0 +1,116 @@
+name: Retrain Pipeline
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [drift-detected]
+  schedule:
+    - cron: "0 2 * * 1"   # Every Monday at 02:00 UTC
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write   # needed for ghcr.io push
+      issues: write     # needed to open failure issues
+
+    env:
+      MLFLOW_TRACKING_URI: mlruns
+      MODEL_NAME: adult_income_classifier
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}/mlops-api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Set up DVC
+        run: |
+          dvc init --no-scm || true
+          dvc remote add -d local ./dvc-storage || true
+
+      - name: Run full DVC pipeline
+        run: dvc repro
+
+      - name: Read evaluation result
+        id: eval
+        run: |
+          python - <<'EOF'
+          import json, os
+          result = json.load(open("evaluate_result.json"))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"should_promote={str(result['should_promote']).lower()}\n")
+              f.write(f"staging_auc={result['staging_auc']}\n")
+              f.write(f"production_auc={result['production_auc']}\n")
+              f.write(f"improvement={result['improvement']}\n")
+              f.write(f"staging_version={result['staging_version']}\n")
+          EOF
+
+      - name: Write job summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          ## Retrain Pipeline Summary
+
+          | Metric | Value |
+          |---|---|
+          | Trigger | ${{ github.event_name }} |
+          | Staging AUC | ${{ steps.eval.outputs.staging_auc }} |
+          | Production AUC | ${{ steps.eval.outputs.production_auc }} |
+          | Improvement | ${{ steps.eval.outputs.improvement }} |
+          | Promoted | ${{ steps.eval.outputs.should_promote }} |
+          | Model Version | ${{ steps.eval.outputs.staging_version }} |
+          EOF
+
+      - name: Log in to GitHub Container Registry
+        if: steps.eval.outputs.should_promote == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        if: steps.eval.outputs.should_promote == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: serving/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ steps.eval.outputs.staging_version }}
+
+      - name: Open GitHub Issue on promotion failure
+        if: steps.eval.outputs.should_promote == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Retrain: model did not improve (run ${context.runNumber})`,
+              body: [
+                '## Retraining did not meet promotion threshold',
+                '',
+                '| Metric | Value |',
+                '|---|---|',
+                `| Staging AUC | ${{ steps.eval.outputs.staging_auc }} |`,
+                `| Production AUC | ${{ steps.eval.outputs.production_auc }} |`,
+                `| Improvement | ${{ steps.eval.outputs.improvement }} |`,
+                `| Threshold | 0.005 |`,
+                '',
+                `[View run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+              ].join('\n'),
+              labels: ['retraining', 'model-quality'],
+            });

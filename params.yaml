@@ -1,0 +1,20 @@
+data:
+  test_size: 0.2
+  random_state: 42
+  reference_sample_size: 5000
+
+model:
+  n_estimators: 200
+  max_depth: 6
+  learning_rate: 0.1
+  subsample: 0.8
+  colsample_bytree: 0.8
+  use_label_encoder: false
+  eval_metric: logloss
+
+promotion:
+  min_auc_improvement: 0.005
+
+monitoring:
+  drift_threshold: 0.15
+  check_window_days: 7
