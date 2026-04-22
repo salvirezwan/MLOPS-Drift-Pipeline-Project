@@ -61,13 +61,13 @@ def send_github_dispatch(drift_score: float, report_path: str) -> bool:
         True if the dispatch was accepted (HTTP 204), False otherwise.
     """
     token = os.getenv("GITHUB_TOKEN")
-    repo = os.getenv("GITHUB_REPO")
+    repo = os.getenv("GH_REPO")
 
     if not token or token == "your_token_here":
         logger.warning("GITHUB_TOKEN not set — skipping GitHub dispatch")
         return False
     if not repo or repo == "your-username/mlops-pipeline":
-        logger.warning("GITHUB_REPO not set — skipping GitHub dispatch")
+        logger.warning("GH_REPO not set — skipping GitHub dispatch")
         return False
 
     triggered_at = datetime.now(timezone.utc).isoformat()
