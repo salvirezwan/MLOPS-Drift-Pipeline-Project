@@ -53,7 +53,11 @@ class ModelPredictor:
             return False
 
         v = versions[-1]
-        model_uri = f"models:/{MODEL_NAME}/{self.stage}"
+        # Build artifact URI directly from run metadata to avoid absolute Windows
+        # paths stored in the registry when training ran on the host.
+        run = client.get_run(v.run_id)
+        experiment_id = run.info.experiment_id
+        model_uri = f"mlruns/{experiment_id}/{v.run_id}/artifacts/model"
         self.model = mlflow.xgboost.load_model(model_uri)
         self.version = v.version
         self.run_id = v.run_id
