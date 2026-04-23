@@ -75,3 +75,6 @@ logs/
 
 # Grafana provisioned data (volume-managed)
 grafana/data/
+
+# Project documentation breakdown
+PROJECT_BREAKDOWN.md
