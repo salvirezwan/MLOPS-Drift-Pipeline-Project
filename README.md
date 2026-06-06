@@ -1,6 +1,6 @@
 # MLOps Pipeline — Drift Detection & Self-Healing CI/CD
 
-End-to-end MLOps portfolio project demonstrating production engineering maturity.
+End-to-end MLOps portfolio project related to production engineering.
 The ML model is intentionally simple (XGBoost on UCI Adult Income).
 All complexity lives in the infrastructure.
 
