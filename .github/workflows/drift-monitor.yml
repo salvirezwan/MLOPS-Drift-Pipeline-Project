@@ -26,6 +26,14 @@ jobs:
           python-version: "3.11"
           cache: pip
 
+      - name: Cache MLflow runs
+        uses: actions/cache@v4
+        with:
+          path: mlruns
+          key: ${{ runner.os }}-mlflow-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-mlflow-
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 

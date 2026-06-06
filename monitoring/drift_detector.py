@@ -173,4 +173,6 @@ def run_drift_detection() -> dict:
 if __name__ == "__main__":
     result = run_drift_detection()
     logger.info(f"Drift detection complete: {result}")
+    from monitoring.alerting import alert
+    alert(result)
     sys.exit(0)
