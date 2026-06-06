@@ -29,6 +29,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Set up DVC
+        run: |
+          dvc init --no-scm || true
+          dvc remote add -d local ./dvc-storage || true
+
+      - name: Generate reference data
+        run: dvc repro train
+
       - name: Run drift detection
         id: drift
         run: |
